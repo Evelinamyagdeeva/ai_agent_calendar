@@ -1,0 +1,72 @@
+:root {
+  --bg: #f4f0ea;
+  --ink: #1c1916;
+  --muted: #6b625a;
+  --card: #fffdf8;
+  --line: #e6ddd2;
+  --accent: #5b4dff;
+  --ok: #1f8a5b;
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  font-family: "Iowan Old Style", "Palatino Linotype", Georgia, serif;
+  background: var(--bg);
+  color: var(--ink);
+}
+#root { min-height: 100vh; }
+.layout { display: grid; grid-template-columns: 220px 1fr; min-height: 100vh; }
+nav {
+  padding: 28px 18px;
+  border-right: 1px solid var(--line);
+  background: #efe8dc;
+}
+nav h1 { font-size: 20px; margin: 0 0 24px; }
+nav button {
+  display: block;
+  width: 100%;
+  text-align: left;
+  border: 0;
+  background: transparent;
+  padding: 10px 8px;
+  font: inherit;
+  cursor: pointer;
+  color: var(--muted);
+}
+nav button.active { color: var(--ink); font-weight: 700; }
+main { padding: 28px 36px 64px; }
+.grid { display: grid; gap: 16px; }
+.cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 14px; }
+.card {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  padding: 16px;
+}
+.card h3 { margin: 0 0 8px; }
+.row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+input, textarea, select, button.btn {
+  font: inherit;
+  padding: 8px 10px;
+  border-radius: 10px;
+  border: 1px solid var(--line);
+}
+button.btn {
+  background: var(--accent);
+  color: white;
+  border: 0;
+  cursor: pointer;
+}
+button.ghost { background: #eee8df; color: var(--ink); }
+.chat {
+  display: grid;
+  grid-template-rows: 1fr auto;
+  height: calc(100vh - 90px);
+}
+.msgs { overflow: auto; display: grid; gap: 10px; padding-bottom: 12px; }
+.bubble { max-width: 720px; padding: 12px 14px; border-radius: 14px; background: #fff; border: 1px solid var(--line); }
+.bubble.me { background: #e8e4ff; margin-left: auto; }
+.stage { border-left: 3px solid var(--accent); padding-left: 10px; margin: 10px 0; }
+.muted { color: var(--muted); font-size: 14px; }
+.ok { color: var(--ok); }
+.warn { color: #b45309; }
