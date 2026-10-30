@@ -106,5 +106,5 @@ def build_context_pack(db: Session) -> dict:
             for r in reflections
         ],
         "pending": [{"id": p.id, "preview": p.preview, "payload": p.payload} for p in pending],
-        "week_facts": review.collect_week_facts(db),
+        "week_facts": {},
     }

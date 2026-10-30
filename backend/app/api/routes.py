@@ -264,12 +264,16 @@ def week(db: Session = Depends(get_db)):
     except Exception as exc:
         events = [{"title": f"Ошибка календаря: {exc}", "start": None, "end": None}]
     pending = db.query(PendingAction).filter(PendingAction.status == "pending").all()
+    free = []
+    try:
+        if gcal.is_connected():
+            free = calendar_service.free_slots(profile, now, now + timedelta(days=7), 60)
+    except Exception as exc:
+        events.append({"title": f"Ошибка свободных слотов: {exc}", "start": None, "end": None})
     return {
         "facts": review.collect_week_facts(db),
         "events": events,
-        "free": calendar_service.free_slots(profile, now, now + timedelta(days=7), 60)
-        if gcal.is_connected()
-        else [],
+        "free": free,
         "pending": [{"id": p.id, "preview": p.preview, "payload": p.payload} for p in pending],
         "reviews": [
             {"id": r.id, "week_start": r.week_start.isoformat(), "content": r.content, "pace_notes": r.pace_notes}
@@ -310,16 +314,22 @@ def reject(action_id: int, db: Session = Depends(get_db)):
 def chat(body: ChatIn, db: Session = Depends(get_db)):
     if not body.message.strip():
         raise HTTPException(400, "Пустое сообщение")
-    return run_agent(db, body.message, body.channel)
+    try:
+        return run_agent(db, body.message, body.channel)
+    except Exception as exc:
+        return {"reply": "Ошибка агента: %s" % exc, "pending_ids": []}
 
 
 @router.post("/review/generate")
 def generate_review(db: Session = Depends(get_db)):
     facts = review.collect_week_facts(db)
-    result = run_agent(
-        db,
-        "Собери недельный обзор по текущим фактам недели, сохрани его через save_weekly_review, "
-        "отметь сильные стороны и просевшие сферы, дай советы по балансу и темпу целей.",
-        "web",
-    )
+    try:
+        result = run_agent(
+            db,
+            "Собери недельный обзор по текущим фактам недели, сохрани его через save_weekly_review, "
+            "отметь сильные стороны и просевшие сферы, дай советы по балансу и темпу целей.",
+            "web",
+        )
+    except Exception as exc:
+        result = {"reply": "Не удалось собрать обзор: %s" % exc, "pending_ids": []}
     return {"facts": facts, **result}

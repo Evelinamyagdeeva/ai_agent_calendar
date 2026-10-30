@@ -1,8 +1,10 @@
 from __future__ import annotations
 
+import asyncio
 from datetime import datetime
 
 from aiogram import Bot, Dispatcher, F
+from aiogram.enums import ChatAction
 from aiogram.filters import CommandStart
 from aiogram.types import CallbackQuery, InlineKeyboardButton, InlineKeyboardMarkup, Message
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
@@ -48,15 +50,26 @@ def setup_dispatcher() -> Dispatcher:
 
     @dp.message(F.text)
     async def chat(message: Message) -> None:
-        db = SessionLocal()
+        text = message.text or ""
+        chat_id = str(message.chat.id)
         try:
-            update_profile(db, telegram_chat_id=str(message.chat.id))
-            result = run_agent(db, message.text or "", "telegram")
+            await message.bot.send_chat_action(message.chat.id, ChatAction.TYPING)
+        except Exception:
+            pass
+
+        def _work():
+            db = SessionLocal()
+            try:
+                update_profile(db, telegram_chat_id=chat_id)
+                return run_agent(db, text, "telegram")
+            finally:
+                db.close()
+
+        try:
+            result = await asyncio.to_thread(_work)
             await message.answer(result["reply"][:4000], reply_markup=_kb_pending(result.get("pending_ids") or []))
         except Exception as exc:
             await message.answer("Ошибка: %s" % exc)
-        finally:
-            db.close()
 
     @dp.callback_query(F.data.startswith("ok:"))
     async def approve(cb: CallbackQuery) -> None:
@@ -118,7 +131,11 @@ async def run_bot() -> None:
     if not settings.telegram_bot_token:
         return
     bot = Bot(settings.telegram_bot_token)
+    await bot.delete_webhook(drop_pending_updates=True)
+    me = await bot.get_me()
+    print("Telegram polling as @%s" % me.username, flush=True)
     scheduler = AsyncIOScheduler()
     scheduler.add_job(reflection_job, "interval", minutes=1, id="reflection", replace_existing=True)
     scheduler.start()
-    await setup_dispatcher().start_polling(bot)
+    dp = setup_dispatcher()
+    await dp.start_polling(bot, allowed_updates=dp.resolve_used_update_types())

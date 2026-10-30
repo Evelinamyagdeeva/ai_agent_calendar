@@ -17,7 +17,7 @@ def _chat(messages: list[dict], tools: bool = True):
     kwargs = {
         "model": settings.polza_ai_model_name,
         "messages": messages,
-        "temperature": 0.4,
+        "max_tokens": 1024,
     }
     if tools:
         kwargs["tools"] = TOOLS
@@ -55,32 +55,51 @@ def run_agent(db: Session, user_text: str, channel: str = "web") -> dict:
         + "\n\n"
         + "\n\n".join(ROLE_PROMPTS.values())
         + "\n\nCONTEXT PACK:\n"
-        + json.dumps(pack, ensure_ascii=False, default=str)[:14000]
+        + json.dumps(pack, ensure_ascii=False, default=str)[:8000]
     )
     if session.summary:
         system += "\n\nSESSION SUMMARY:\n" + session.summary
     messages = [{"role": "system", "content": system}] + history
     pending_ids: list[int] = []
     reply = ""
-    for _ in range(8):
-        response = _chat(messages)
-        choice = response.choices[0].message
-        tool_calls = choice.tool_calls or []
-        if tool_calls:
-            dumped = choice.model_dump(exclude_unset=True)
-            messages.append(dumped)
-            for tc in tool_calls:
-                args = json.loads(tc.function.arguments or "{}")
-                result = execute_tool(db, tc.function.name, args)
-                if tc.function.name == "propose_calendar_event":
-                    try:
-                        pending_ids.append(json.loads(result)["pending_id"])
-                    except Exception:
-                        pass
-                messages.append({"role": "tool", "tool_call_id": tc.id, "content": str(result)})
-            continue
-        reply = choice.content or "Готово."
-        break
+    if not settings.polza_ai_api_key:
+        reply = "Нет POLZA_AI_API_KEY в .env — без него агент не отвечает."
+    else:
+        try:
+            for _ in range(3):
+                response = _chat(messages)
+                choice = response.choices[0].message
+                tool_calls = choice.tool_calls or []
+                if tool_calls:
+                    dumped = choice.model_dump(exclude_unset=True)
+                    messages.append(dumped)
+                    for tc in tool_calls:
+                        args = json.loads(tc.function.arguments or "{}")
+                        result = execute_tool(db, tc.function.name, args)
+                        if tc.function.name == "propose_calendar_event":
+                            try:
+                                pending_ids.append(json.loads(result)["pending_id"])
+                            except Exception:
+                                pass
+                        messages.append({"role": "tool", "tool_call_id": tc.id, "content": str(result)})
+                    continue
+                reply = choice.content or "Готово."
+                break
+        except Exception as exc:
+            name = exc.__class__.__name__
+            if "Timeout" in name or "Connect" in name:
+                reply = (
+                    "Polza сейчас не открывается с этого компьютера (таймаут до polza.ai). "
+                    "Открой https://polza.ai в браузере: если сайт тоже не грузится — VPN, фильтр или сеть. "
+                    "Модель %s тут ни при чём, пока нет соединения."
+                    % settings.polza_ai_model_name
+                )
+            else:
+                reply = "Ошибка Polza (%s). Ключ, модель %s или лимит. Детали: %s" % (
+                    name,
+                    settings.polza_ai_model_name,
+                    str(exc)[:240],
+                )
     if not reply:
         reply = "Не удалось получить ответ модели. Проверь Polza API ключ."
     conversations.add_message(db, session, "assistant", reply)

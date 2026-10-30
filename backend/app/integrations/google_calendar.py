@@ -9,6 +9,8 @@ from google.auth.transport.requests import Request
 from google.oauth2.credentials import Credentials
 from google_auth_oauthlib.flow import InstalledAppFlow
 from googleapiclient.discovery import build
+import httplib2
+from google_auth_httplib2 import AuthorizedHttp
 
 from app.config import ROOT, settings
 
@@ -77,7 +79,8 @@ def calendar_service():
     creds = load_credentials()
     if not creds or not creds.valid:
         raise RuntimeError("Google Calendar не подключён")
-    return build("calendar", "v3", credentials=creds, cache_discovery=False)
+    http = AuthorizedHttp(creds, http=httplib2.Http(timeout=5))
+    return build("calendar", "v3", http=http, cache_discovery=False)
 
 
 def list_events(time_min: datetime, time_max: datetime) -> list[dict[str, Any]]:

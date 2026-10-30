@@ -1,4 +1,5 @@
 import asyncio
+import logging
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -9,13 +10,25 @@ from app.config import ROOT, settings
 from app.db.session import init_db
 from app.telegram.bot import run_bot
 
+log = logging.getLogger("uvicorn.error")
+
+
+async def _run_telegram() -> None:
+    try:
+        log.info("Telegram bot starting")
+        await run_bot()
+    except asyncio.CancelledError:
+        raise
+    except Exception:
+        log.exception("Telegram bot crashed")
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     init_db()
     task = None
     if settings.telegram_bot_token:
-        task = asyncio.create_task(run_bot())
+        task = asyncio.create_task(_run_telegram())
     yield
     if task:
         task.cancel()

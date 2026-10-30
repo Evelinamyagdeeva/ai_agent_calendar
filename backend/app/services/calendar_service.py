@@ -70,7 +70,10 @@ def _parse_dt(value: str, tz: ZoneInfo) -> datetime:
 def busy_slots(profile: UserProfile, start: datetime, end: datetime) -> list[dict]:
     if not gcal.is_connected():
         return []
-    events = gcal.list_events(start, end)
+    try:
+        events = gcal.list_events(start, end)
+    except Exception:
+        return []
     tz = tzinfo(profile)
     busy = []
     for ev in events:
