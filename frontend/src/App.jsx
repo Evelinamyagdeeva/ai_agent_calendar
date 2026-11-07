@@ -21,6 +21,7 @@ async function api(path, opts = {}) {
 
 export default function App() {
   const [page, setPage] = useState("map");
+  const [collapsed, setCollapsed] = useState(() => localStorage.getItem("navCollapsed") === "1");
   const [me, setMe] = useState(null);
   const [areas, setAreas] = useState([]);
   const [goals, setGoals] = useState([]);
@@ -55,20 +56,27 @@ export default function App() {
     reload();
   }, []);
 
+  function toggleNav() {
+    const next = !collapsed;
+    setCollapsed(next);
+    localStorage.setItem("navCollapsed", next ? "1" : "0");
+  }
+
   return (
-    <div className="layout">
+    <div className={`layout ${collapsed ? "collapsed" : ""}`}>
       <nav>
+        <button className="toggle" type="button" onClick={toggleNav} title={collapsed ? "Развернуть" : "Свернуть"}>
+          {collapsed ? "›" : "‹"}
+        </button>
         <h1>Агент развития</h1>
-        {pages.map(([id, label]) => (
-          <button key={id} className={page === id ? "active" : ""} onClick={() => setPage(id)}>
-            {label}
-          </button>
-        ))}
-        {me && (
-          <p className="muted">
-            {me.google_connected ? "Google подключён" : "Google не подключён"}
-          </p>
-        )}
+        <div className="nav-links">
+          {pages.map(([id, label]) => (
+            <button key={id} className={`nav-item ${page === id ? "active" : ""}`} onClick={() => setPage(id)}>
+              {label}
+            </button>
+          ))}
+        </div>
+        {me && !me.google_connected && <p className="gstatus">Google не подключён</p>}
       </nav>
       <main>
         {error && <p className="warn">{error}</p>}
@@ -223,6 +231,82 @@ function StageForm({ goalId, onDone }) {
   );
 }
 
+function WeekGrid({ events }) {
+  const labels = ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"];
+  const startHour = 7;
+  const endHour = 23;
+  const hourH = 48;
+  const monday = new Date();
+  monday.setHours(0, 0, 0, 0);
+  monday.setDate(monday.getDate() - ((monday.getDay() + 6) % 7));
+  const today = new Date();
+  const items = (events || [])
+    .map((e) => {
+      if (!e.start || !String(e.start).includes("T")) return null;
+      const s = new Date(e.start);
+      const en = new Date(e.end || e.start);
+      if (Number.isNaN(s.getTime())) return null;
+      return { title: e.title || "Без названия", s, en: Number.isNaN(en.getTime()) ? s : en };
+    })
+    .filter(Boolean);
+  const hours = [];
+  for (let h = startHour; h < endHour; h += 1) hours.push(String(h).padStart(2, "0") + ":00");
+  const days = labels.map((label, i) => {
+    const day = new Date(monday);
+    day.setDate(monday.getDate() + i);
+    const mine = items
+      .filter((ev) => ev.s.toDateString() === day.toDateString())
+      .sort((a, b) => a.s - b.s);
+    const laneEnds = [];
+    mine.forEach((ev) => {
+      let lane = laneEnds.findIndex((end) => end <= ev.s.getTime());
+      if (lane < 0) {
+        lane = laneEnds.length;
+        laneEnds.push(ev.en.getTime());
+      } else laneEnds[lane] = ev.en.getTime();
+      ev.lane = lane;
+    });
+    const lanes = Math.max(1, laneEnds.length);
+    return { label, day, mine, lanes, today: day.toDateString() === today.toDateString() };
+  });
+  const fmt = (d) => d.toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" });
+  return (
+    <div className="gcal">
+      <div className="hours">
+        {hours.map((h) => (
+          <div className="hour" key={h}>{h}</div>
+        ))}
+      </div>
+      <div className="days">
+        {days.map((col) => (
+          <div className="day" key={col.label}>
+            <div className={`dayhead${col.today ? " today" : ""}`}>{col.label} {col.day.getDate()}</div>
+            <div className="daybody" style={{ height: (endHour - startHour) * hourH }}>
+              {col.mine.map((ev, idx) => {
+                const sh = ev.s.getHours() + ev.s.getMinutes() / 60;
+                const eh = Math.max(sh + 0.4, ev.en.getHours() + ev.en.getMinutes() / 60);
+                const top = Math.max(0, (sh - startHour) * hourH);
+                const height = Math.max(22, Math.min((endHour - startHour) * hourH - top, (eh - sh) * hourH));
+                const width = 100 / col.lanes;
+                return (
+                  <div
+                    className="ev"
+                    key={idx}
+                    style={{ top, height, left: `${ev.lane * width}%`, width: `calc(${width}% - 4px)` }}
+                  >
+                    <b>{ev.title}</b>
+                    <span>{fmt(ev.s)}–{fmt(ev.en)}</span>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function WeekPage({ week, onReload }) {
   if (!week) return <p>Загрузка…</p>;
   return (
@@ -236,11 +320,7 @@ function WeekPage({ week, onReload }) {
         Собрать обзор недели
       </button>
       <h3>Календарь</h3>
-      {week.events.map((e) => (
-        <div key={e.id || e.title} className="card" style={{ marginBottom: 8 }}>
-          {e.title} <span className="muted">{e.start}</span>
-        </div>
-      ))}
+      <WeekGrid events={week.events || []} />
       <h3>Черновики</h3>
       {week.pending.map((p) => (
         <div key={p.id} className="card">

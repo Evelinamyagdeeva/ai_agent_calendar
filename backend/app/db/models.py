@@ -32,7 +32,7 @@ class LifeArea(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     name: Mapped[str] = mapped_column(String(120))
     description: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
-    color: Mapped[str] = mapped_column(String(16), default="#7c6cff")
+    color: Mapped[str] = mapped_column(String(16), default="#c99a90")
     is_custom: Mapped[bool] = mapped_column(Boolean, default=False)
     goals: Mapped[list["Goal"]] = relationship(back_populates="area")
     habits: Mapped[list["Habit"]] = relationship(back_populates="area")

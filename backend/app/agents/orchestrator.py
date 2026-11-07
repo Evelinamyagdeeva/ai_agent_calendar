@@ -85,23 +85,10 @@ def run_agent(db: Session, user_text: str, channel: str = "web") -> dict:
                     continue
                 reply = choice.content or "Готово."
                 break
-        except Exception as exc:
-            name = exc.__class__.__name__
-            if "Timeout" in name or "Connect" in name:
-                reply = (
-                    "Polza сейчас не открывается с этого компьютера (таймаут до polza.ai). "
-                    "Открой https://polza.ai в браузере: если сайт тоже не грузится — VPN, фильтр или сеть. "
-                    "Модель %s тут ни при чём, пока нет соединения."
-                    % settings.polza_ai_model_name
-                )
-            else:
-                reply = "Ошибка Polza (%s). Ключ, модель %s или лимит. Детали: %s" % (
-                    name,
-                    settings.polza_ai_model_name,
-                    str(exc)[:240],
-                )
+        except Exception:
+            reply = "Сейчас не могу ответить."
     if not reply:
-        reply = "Не удалось получить ответ модели. Проверь Polza API ключ."
+        reply = "Сейчас не могу ответить."
     conversations.add_message(db, session, "assistant", reply)
     _maybe_summarize(db, session, history + [{"role": "assistant", "content": reply}])
     return {"reply": reply, "pending_ids": pending_ids, "session_id": session.id}

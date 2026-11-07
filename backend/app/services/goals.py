@@ -10,11 +10,11 @@ from sqlalchemy.orm import Session
 from app.db.models import Goal, LifeArea, RoadmapStage, StageTask
 
 DEFAULT_AREAS = [
-    ("Карьера и учёба", "#6c8cff"),
-    ("Здоровье", "#3ecf8e"),
-    ("Отношения", "#ff8fab"),
-    ("Финансы", "#ffc14d"),
-    ("Творчество", "#c084fc"),
+    ("Карьера и учёба", "#9eae6e"),
+    ("Здоровье", "#6d7a45"),
+    ("Отношения", "#c99a90"),
+    ("Финансы", "#f4c9c4"),
+    ("Творчество", "#e7b7b2"),
 ]
 
 
